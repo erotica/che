@@ -18,8 +18,8 @@ import org.eclipse.che.ide.api.action.ActionEvent;
 import org.eclipse.che.ide.api.app.AppContext;
 import org.eclipse.che.ide.api.resources.Project;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
-import org.eclipse.che.ide.ext.git.client.history.HistoryPresenter;
 import org.eclipse.che.ide.FontAwesome;
+import org.eclipse.che.ide.ext.git.client.historyList.HistoryPresenter;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -46,6 +46,10 @@ public class HistoryAction extends GitAction {
 
         checkState(project != null, "Null project occurred");
 
-        presenterProvider.get().showDialog(project);
+        final String selectedItemPath = appContext.getResource()
+                                                  .getLocation()
+                                                  .removeFirstSegments(project.getLocation().segmentCount())
+                                                  .removeTrailingSeparator()
+        presenterProvider.get().show(project, selectedItemPath);
     }
 }
