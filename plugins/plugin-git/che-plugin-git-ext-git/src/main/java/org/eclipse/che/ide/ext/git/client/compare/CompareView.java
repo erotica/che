@@ -30,6 +30,8 @@ interface CompareView extends View<CompareView.ActionDelegate> {
      */
     void setTitle(String title);
 
+    void setColoumnTitles(String leftTitle, String rightTitle);
+
     /** Hide compare window. */
     void hide();
 
@@ -37,15 +39,17 @@ interface CompareView extends View<CompareView.ActionDelegate> {
      * Show compare window with specified contents.
      *
      * @param oldContent
-     *         content from specified revision or branch
+     *         content from specified leftTitle or branch
      * @param newContent
      *         content of current file
-     * @param revision
-     *         revision or branch which is getting part in comparing
-     * @param file
+     * @param revisionA
+     *         leftTitle or branch which is getting part in comparing
+     * @param revisionB
+     *         leftTitle or branch which is getting part in comparing
+     * @param fileName
      *         changed file name with its full path
      */
-    void show(String oldContent, String newContent, String revision, String file);
+    void show(String oldContent, String newContent, String fileName, boolean readOnly);
 
     interface ActionDelegate {
         /** Performs some actions in response to user's closing the window.

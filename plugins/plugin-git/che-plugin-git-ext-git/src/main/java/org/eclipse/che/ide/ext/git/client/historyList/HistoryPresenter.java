@@ -10,13 +10,13 @@
  *******************************************************************************/
 package org.eclipse.che.ide.ext.git.client.historyList;
 
-import com.google.common.base.Optional;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 
 import org.eclipse.che.api.core.ErrorCodes;
 import org.eclipse.che.api.git.shared.LogResponse;
 import org.eclipse.che.api.git.shared.Revision;
+import org.eclipse.che.api.git.shared.ShowFileContentResponse;
 import org.eclipse.che.api.promises.client.Operation;
 import org.eclipse.che.api.promises.client.OperationException;
 import org.eclipse.che.api.promises.client.PromiseError;
@@ -24,15 +24,18 @@ import org.eclipse.che.ide.api.app.AppContext;
 import org.eclipse.che.ide.api.dialogs.DialogFactory;
 import org.eclipse.che.ide.api.git.GitServiceClient;
 import org.eclipse.che.ide.api.notification.NotificationManager;
-import org.eclipse.che.ide.api.resources.File;
 import org.eclipse.che.ide.api.resources.Project;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.compare.ComparePresenter;
+import org.eclipse.che.ide.ext.git.client.compare.FileStatus;
+import org.eclipse.che.ide.ext.git.client.compare.changedList.ChangedListPresenter;
 import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.singletonList;
 import static org.eclipse.che.api.git.shared.DiffType.NAME_STATUS;
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.NOT_EMERGE_MODE;
@@ -49,6 +52,7 @@ import static org.eclipse.che.ide.util.ExceptionUtils.getErrorCode;
 @Singleton
 public class HistoryPresenter implements HistoryView.ActionDelegate {
     private final ComparePresenter        comparePresenter;
+    private final ChangedListPresenter    changedListPresenter;
     private final DialogFactory           dialogFactory;
     private final HistoryView             view;
     private final GitServiceClient        service;
@@ -56,13 +60,15 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
     private final AppContext              appContext;
     private final NotificationManager     notificationManager;
 
-    private Revision selectedRevision;
-    private Project  project;
-    private Path     selectedPath;
+    private Revision       selectedRevision;
+    private Project        project;
+    private Path           selectedPath;
+    private List<Revision> revisions;
 
     @Inject
     public HistoryPresenter(HistoryView view,
                             ComparePresenter comparePresenter,
+                            ChangedListPresenter changedListPresenter,
                             GitServiceClient service,
                             GitLocalizationConstant locale,
                             NotificationManager notificationManager,
@@ -70,6 +76,7 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                             AppContext appContext) {
         this.view = view;
         this.comparePresenter = comparePresenter;
+        this.changedListPresenter = changedListPresenter;
         this.dialogFactory = dialogFactory;
         this.service = service;
         this.locale = locale;
@@ -80,10 +87,12 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
     }
 
     /** Open dialog and shows revisions to compare. */
-    public void show(Project project, Path selectedItemPath) {
-        this.project = project;
-        checkState(project.getLocation().isPrefixOf(selectedItemPath), "Given selected file is not descendant of given project");
-        selectedPath = selectedItemPath;
+    public void show() {
+        this.project = appContext.getRootProject();
+        this.selectedPath = appContext.getResource()
+                                      .getLocation()
+                                      .removeFirstSegments(project.getLocation().segmentCount())
+                                      .removeTrailingSeparator();
         getRevisions();
     }
 
@@ -123,10 +132,11 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
 
     /** Get list of revisions. */
     private void getRevisions() {
-        service.log(appContext.getDevMachine(), project.getLocation(), new Path[]{selectedPath}, false)
+        service.log(appContext.getDevMachine(), project.getLocation(), selectedPath.isEmpty() ? null : new Path[]{selectedPath}, false)
                .then(new Operation<LogResponse>() {
                    @Override
                    public void apply(LogResponse log) throws OperationException {
+                       HistoryPresenter.this.revisions = log.getCommits();
                        view.setRevisions(log.getCommits());
                        view.showDialog();
                    }
@@ -145,14 +155,16 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
     }
 
     private void compare() {
+        final String revisionA = revisions.get(revisions.indexOf(selectedRevision) + 1).getId();
+        final String revisionB = selectedRevision.getId();
         service.diff(appContext.getDevMachine(),
                      project.getLocation(),
                      singletonList(selectedPath.toString()),
                      NAME_STATUS,
-                     false,
+                     true,
                      0,
-                     selectedRevision.getId(),
-                     false)
+                     revisionA,
+                     revisionB)
                .then(new Operation<String>() {
                    @Override
                    public void apply(final String diff) throws OperationException {
@@ -160,15 +172,33 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                            dialogFactory.createMessageDialog(locale.compareMessageIdenticalContentTitle(),
                                                              locale.compareMessageIdenticalContentText(), null).show();
                        } else {
-                           project.getFile(diff.substring(2)).then(new Operation<Optional<File>>() {
-                               @Override
-                               public void apply(Optional<File> file) throws OperationException {
-                                   if (file.isPresent()) {
-                                       comparePresenter.show(file.get(), defineStatus(diff.substring(0, 1)), selectedRevision.getId());
-                                   }
+                           final String[] changedFiles = diff.split("\n");
+                           final Path path = Path.valueOf(changedFiles[0].substring(2));
+                           if (changedFiles.length == 1) {
+                               service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionA)
+                                      .then(new Operation<ShowFileContentResponse>() {
+                                          @Override
+                                          public void apply(final ShowFileContentResponse contentA) throws OperationException {
+                                              service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionB)
+                                                     .then(new Operation<ShowFileContentResponse>() {
+                                                         @Override
+                                                         public void apply(ShowFileContentResponse contentB) throws OperationException {
+                                                             comparePresenter.show(revisionA,
+                                                                                   revisionB,
+                                                                                   diff.substring(2),
+                                                                                   contentA.getContent(),
+                                                                                   contentB.getContent());
+                                                         }
+                                                     });
+                                          }
+                                      });
+                           } else {
+                               Map<String, FileStatus.Status> items = new HashMap<>();
+                               for (String item : changedFiles) {
+                                   items.put(item.substring(2, item.length()), defineStatus(item.substring(0, 1)));
                                }
-                           });
-
+                               changedListPresenter.show(items, revisionA, revisionB, project);
+                           }
                        }
                    }
                })

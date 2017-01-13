@@ -152,7 +152,7 @@ public class BranchListPresenter implements BranchListView.ActionDelegate {
                                for (String item : changedFiles) {
                                    items.put(item.substring(2, item.length()), defineStatus(item.substring(0, 1)));
                                }
-                               changedListPresenter.show(items, selectedBranch.getName(), project);
+                               changedListPresenter.show(items, selectedBranch.getName(), null, project);
                            }
                        }
                    }

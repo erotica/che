@@ -20,6 +20,7 @@ import org.eclipse.che.ide.api.resources.Project;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.FontAwesome;
 import org.eclipse.che.ide.ext.git.client.historyList.HistoryPresenter;
+import org.eclipse.che.ide.resource.Path;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -42,14 +43,6 @@ public class HistoryAction extends GitAction {
     /** {@inheritDoc} */
     @Override
     public void actionPerformed(ActionEvent e) {
-        final Project project = appContext.getRootProject();
-
-        checkState(project != null, "Null project occurred");
-
-        final String selectedItemPath = appContext.getResource()
-                                                  .getLocation()
-                                                  .removeFirstSegments(project.getLocation().segmentCount())
-                                                  .removeTrailingSeparator()
-        presenterProvider.get().show(project, selectedItemPath);
+        presenterProvider.get().show();
     }
 }

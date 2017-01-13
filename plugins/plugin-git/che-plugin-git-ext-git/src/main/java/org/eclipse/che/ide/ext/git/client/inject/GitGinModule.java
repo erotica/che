@@ -33,8 +33,8 @@ import org.eclipse.che.ide.ext.git.client.compare.revisionsList.RevisionListView
 import org.eclipse.che.ide.ext.git.client.compare.revisionsList.RevisionListViewImpl;
 import org.eclipse.che.ide.ext.git.client.fetch.FetchView;
 import org.eclipse.che.ide.ext.git.client.fetch.FetchViewImpl;
-import org.eclipse.che.ide.ext.git.client.history.HistoryView;
-import org.eclipse.che.ide.ext.git.client.history.HistoryViewImpl;
+import org.eclipse.che.ide.ext.git.client.historyList.HistoryView;
+import org.eclipse.che.ide.ext.git.client.historyList.HistoryViewImpl;
 import org.eclipse.che.ide.ext.git.client.importer.GitImportWizardRegistrar;
 import org.eclipse.che.ide.ext.git.client.merge.MergeView;
 import org.eclipse.che.ide.ext.git.client.merge.MergeViewImpl;

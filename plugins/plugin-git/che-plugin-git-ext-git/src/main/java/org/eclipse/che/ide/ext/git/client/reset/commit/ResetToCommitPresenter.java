@@ -34,7 +34,6 @@ import javax.validation.constraints.NotNull;
 
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.FLOAT_MODE;
 import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
-import static org.eclipse.che.ide.ext.git.client.history.HistoryPresenter.LOG_COMMAND_NAME;
 import static org.eclipse.che.ide.util.ExceptionUtils.getErrorCode;
 
 /**
@@ -102,7 +101,7 @@ public class ResetToCommitPresenter implements ResetToCommitView.ActionDelegate 
                     return;
                 }
                 String errorMessage = (error.getMessage() != null) ? error.getMessage() : constant.logFailed();
-                GitOutputConsole console = gitOutputConsoleFactory.create(LOG_COMMAND_NAME);
+                GitOutputConsole console = gitOutputConsoleFactory.create("dgsdf");
                 console.printError(errorMessage);
                 consolesPanelPresenter.addCommandOutput(appContext.getDevMachine().getId(), console);
                 notificationManager.notify(constant.logFailed(), FAIL, FLOAT_MODE);

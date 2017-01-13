@@ -14,18 +14,32 @@ import com.google.common.base.Optional;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 
+import org.eclipse.che.api.core.ErrorCodes;
+import org.eclipse.che.api.git.shared.ShowFileContentResponse;
 import org.eclipse.che.api.promises.client.Operation;
 import org.eclipse.che.api.promises.client.OperationException;
+import org.eclipse.che.api.promises.client.PromiseError;
+import org.eclipse.che.commons.annotation.Nullable;
+import org.eclipse.che.ide.api.app.AppContext;
 import org.eclipse.che.ide.api.data.tree.Node;
+import org.eclipse.che.ide.api.git.GitServiceClient;
+import org.eclipse.che.ide.api.machine.DevMachine;
+import org.eclipse.che.ide.api.notification.NotificationManager;
+import org.eclipse.che.ide.api.notification.StatusNotification;
 import org.eclipse.che.ide.api.resources.File;
 import org.eclipse.che.ide.api.resources.Project;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.compare.ComparePresenter;
 import org.eclipse.che.ide.ext.git.client.compare.FileStatus.Status;
+import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
 
 import java.util.Map;
+
+import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.FLOAT_MODE;
+import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
+import static org.eclipse.che.ide.util.ExceptionUtils.getErrorCode;
 
 /**
  * Presenter for displaying list of changed files.
@@ -36,22 +50,32 @@ import java.util.Map;
 @Singleton
 public class ChangedListPresenter implements ChangedListView.ActionDelegate {
     private final ChangedListView         view;
+    private final NotificationManager     notificationManager;
     private final GitLocalizationConstant locale;
+    private final GitServiceClient        service;
+    private final AppContext              appContext;
     private final ComparePresenter        comparePresenter;
 
     private Map<String, Status> changedFiles;
     private Project             project;
     private String              file;
-    private String              revision;
+    private String              revisionA;
+    private String              revisionB;
     private Status              status;
     private boolean             treeViewEnabled;
 
     @Inject
     public ChangedListPresenter(ChangedListView view,
+                                GitServiceClient service,
+                                AppContext appContext,
                                 ComparePresenter comparePresenter,
+                                NotificationManager notificationManager,
                                 GitLocalizationConstant locale) {
+        this.service = service;
+        this.appContext = appContext;
         this.comparePresenter = comparePresenter;
         this.view = view;
+        this.notificationManager = notificationManager;
         this.locale = locale;
         this.view.setDelegate(this);
     }
@@ -61,13 +85,14 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
      *
      * @param changedFiles
      *         Map with files and their status
-     * @param revision
-     *         hash of revision or branch
+     * @param revisionA
+     *         hash of revisionA or branch
      */
-    public void show(Map<String, Status> changedFiles, String revision, Project project) {
+    public void show(Map<String, Status> changedFiles, String revisionA, @Nullable String revisionB, Project project) {
         this.changedFiles = changedFiles;
         this.project = project;
-        this.revision = revision;
+        this.revisionA = revisionA;
+        this.revisionB = revisionB;
 
         view.setEnableCompareButton(false);
         view.setEnableExpandCollapseButtons(treeViewEnabled);
@@ -111,7 +136,6 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
         view.collapseAllDirectories();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onNodeSelected(@NotNull Node node) {
         if (node instanceof ChangedFolderNode) {
@@ -134,13 +158,55 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
     }
 
     private void showCompare() {
+        if (revisionB != null) {
+            showCompareBetweenRevisions();
+        } else {
+            showCompareWithLatest();
+        }
+    }
+
+    private void showCompareWithLatest() {
         project.getFile(file).then(new Operation<Optional<File>>() {
             @Override
             public void apply(Optional<File> file) throws OperationException {
                 if (file.isPresent()) {
-                    comparePresenter.show(file.get(), status, revision);
+                    comparePresenter.show(file.get(), status, revisionA);
                 }
             }
         });
+    }
+
+    private void showCompareBetweenRevisions() {
+        final DevMachine devMachine = appContext.getDevMachine();
+        final Path location = appContext.getRootProject().getLocation();
+        service.showFileContent(devMachine, location, Path.valueOf(file), revisionA)
+               .then(new Operation<ShowFileContentResponse>() {
+                   @Override
+                   public void apply(final ShowFileContentResponse contentA) throws OperationException {
+                       service.showFileContent(devMachine, location, Path.valueOf(file), revisionB)
+                              .then(new Operation<ShowFileContentResponse>() {
+                                  @Override
+                                  public void apply(ShowFileContentResponse contentB) throws OperationException {
+                                      comparePresenter.show(revisionA, revisionB, file, contentA.getContent(), contentB.getContent());
+                                  }
+                              });
+                   }
+               })
+               .catchError(new Operation<PromiseError>() {
+                   @Override
+                   public void apply(PromiseError error) throws OperationException {
+                       if (getErrorCode(error.getCause()) == ErrorCodes.PATH_IS_NOT_EXIST_IN_REVISION) {
+                           service.showFileContent(devMachine, location, Path.valueOf(file), revisionB)
+                                  .then(new Operation<ShowFileContentResponse>() {
+                                      @Override
+                                      public void apply(ShowFileContentResponse contentB) throws OperationException {
+                                          comparePresenter.show(revisionA, revisionB, file, "", contentB.getContent());
+                                      }
+                                  });
+                       } else {
+                           notificationManager.notify(error.getMessage(), FAIL, FLOAT_MODE);
+                       }
+                   }
+               });
     }
 }

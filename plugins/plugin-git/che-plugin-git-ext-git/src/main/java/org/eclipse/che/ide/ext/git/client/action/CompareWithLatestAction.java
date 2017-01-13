@@ -114,7 +114,7 @@ public class CompareWithLatestAction extends GitAction {
                                for (String item : changedFiles) {
                                    items.put(item.substring(2, item.length()), defineStatus(item.substring(0, 1)));
                                }
-                               changedListPresenter.show(items, REVISION, project);
+                               changedListPresenter.show(items, REVISION, null, project);
                            }
                        }
                    }

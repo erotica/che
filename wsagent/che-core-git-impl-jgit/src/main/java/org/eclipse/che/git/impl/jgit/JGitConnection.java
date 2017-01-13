@@ -614,7 +614,8 @@ class JGitConnection implements GitConnection {
                     treeWalk.setRecursive(true);
                     treeWalk.setFilter(PathFilter.create(file));
                     if (!treeWalk.next()) {
-                        throw new GitException("fatal: Path '" + file + "' does not exist in '" + version + "'" + lineSeparator());
+                        throw new GitException("fatal: Path '" + file + "' does not exist in '" + version + "'" + lineSeparator(),
+                                               ErrorCodes.PATH_IS_NOT_EXIST_IN_REVISION);
                     }
                     ObjectId objectId = treeWalk.getObjectId(0);
                     ObjectLoader loader = repository.open(objectId);
