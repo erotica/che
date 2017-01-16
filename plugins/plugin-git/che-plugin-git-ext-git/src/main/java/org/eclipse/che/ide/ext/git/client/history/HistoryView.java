@@ -8,7 +8,7 @@
  * Contributors:
  *   Codenvy, S.A. - initial API and implementation
  *******************************************************************************/
-package org.eclipse.che.ide.ext.git.client.historyList;
+package org.eclipse.che.ide.ext.git.client.history;
 
 import org.eclipse.che.api.git.shared.Revision;
 import org.eclipse.che.ide.api.mvp.View;
@@ -43,6 +43,11 @@ public interface HistoryView extends View<HistoryView.ActionDelegate> {
 
         /** Performs any action in response to the user do not have any selected revision. */
         void onRevisionUnselected();
+
+        /**
+         * Occurs when the last entry in the list has been displayed.
+         */
+        void onScrolledToButton();
     }
 
     /**

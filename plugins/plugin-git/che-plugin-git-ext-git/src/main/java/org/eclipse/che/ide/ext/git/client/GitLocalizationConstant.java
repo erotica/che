@@ -529,6 +529,9 @@ public interface GitLocalizationConstant extends Messages {
     @Key("view.history.title")
     String historyTitle();
 
+    @Key("view.history.message.no.commits.text")
+    String historyMessageNoCommitsText();
+
     @Key("view.history.project.changes.button.title")
     String historyProjectChangesButtonTitle();
 

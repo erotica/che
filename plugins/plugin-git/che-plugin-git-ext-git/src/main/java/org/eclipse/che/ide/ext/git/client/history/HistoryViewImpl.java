@@ -8,7 +8,7 @@
  * Contributors:
  *   Codenvy, S.A. - initial API and implementation
  *******************************************************************************/
-package org.eclipse.che.ide.ext.git.client.historyList;
+package org.eclipse.che.ide.ext.git.client.history;
 
 import com.google.gwt.cell.client.TextCell;
 import com.google.gwt.core.client.GWT;
@@ -16,8 +16,10 @@ import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.event.dom.client.DoubleClickEvent;
 import com.google.gwt.event.dom.client.DoubleClickHandler;
+import com.google.gwt.event.dom.client.ScrollEvent;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
+import com.google.gwt.uibinder.client.UiHandler;
 import com.google.gwt.user.cellview.client.CellTable;
 import com.google.gwt.user.cellview.client.Column;
 import com.google.gwt.user.client.ui.Button;
@@ -45,10 +47,10 @@ import java.util.List;
  */
 @Singleton
 public class HistoryViewImpl extends Window implements HistoryView {
-    interface RevisionListViewImplUiBinder extends UiBinder<Widget, HistoryViewImpl> {
+    interface HistoryListViewImplUiBinder extends UiBinder<Widget, HistoryViewImpl> {
     }
 
-    private static RevisionListViewImplUiBinder uiBinder = GWT.create(RevisionListViewImplUiBinder.class);
+    private static HistoryListViewImplUiBinder uiBinder = GWT.create(HistoryListViewImplUiBinder.class);
 
     Button btnClose;
     Button btnCompare;
@@ -77,47 +79,45 @@ public class HistoryViewImpl extends Window implements HistoryView {
         this.res = resources;
         this.locale = locale;
         this.dateTimeFormatter = dateTimeFormatter;
-        this.ensureDebugId("git-compare-revision-window");
+        this.ensureDebugId("git-history-window");
 
         Widget widget = uiBinder.createAndBindUi(this);
 
-        this.setTitle(locale.compareWithRevisionTitle());
+        this.setTitle(locale.historyTitle());
         this.setWidget(widget);
 
+        revisionsPanel.getElement().setTabIndex(-1);
         description.setReadOnly(true);
 
         createRevisionsTable(coreRes);
         createButtons();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void setDelegate(ActionDelegate delegate) {
         this.delegate = delegate;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void setRevisions(@NotNull List<Revision> revisions) {
+    public void setRevisions(List<Revision> revisions) {
         this.revisions.setRowData(revisions);
         if (selectionModel.getSelectedObject() == null) {
             delegate.onRevisionUnselected();
         }
+        // if the size of the panel is greater then the size of the loaded list of the history then no scroller has been appeared yet
+        onPanelScrolled(null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void setEnableCompareButton(boolean enabled) {
         btnCompare.setEnabled(enabled);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void setDescription(String description) {
         this.description.setText(description);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
         onClose();
@@ -129,7 +129,6 @@ public class HistoryViewImpl extends Window implements HistoryView {
         super.onClose();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void showDialog() {
         this.show();
@@ -191,8 +190,7 @@ public class HistoryViewImpl extends Window implements HistoryView {
     }
 
     private void createButtons() {
-        btnClose = createButton(locale.buttonClose(), "git-compare-revision-close", new ClickHandler() {
-
+        btnClose = createButton(locale.buttonClose(), "git-history-close", new ClickHandler() {
             @Override
             public void onClick(ClickEvent event) {
                 delegate.onCloseClicked();
@@ -200,13 +198,22 @@ public class HistoryViewImpl extends Window implements HistoryView {
         });
         addButtonToFooter(btnClose);
 
-        btnCompare = createButton(locale.buttonCompare(), "git-compare-revision-compare", new ClickHandler() {
-
+        btnCompare = createButton(locale.buttonCompare(), "git-history-compare", new ClickHandler() {
             @Override
             public void onClick(ClickEvent event) {
                 delegate.onCompareClicked();
             }
         });
         addButtonToFooter(btnCompare);
+    }
+
+    @UiHandler("revisionsPanel")
+    public void onPanelScrolled(ScrollEvent ignored) {
+        if (revisionsPanel.getVerticalScrollPosition() == revisionsPanel.getMaximumVerticalScrollPosition()) {
+            // to avoid autoscrolling to selected item
+            revisionsPanel.getElement().focus();
+
+            delegate.onScrolledToButton();
+        }
     }
 }

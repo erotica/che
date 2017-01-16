@@ -8,12 +8,13 @@
  * Contributors:
  *   Codenvy, S.A. - initial API and implementation
  *******************************************************************************/
-package org.eclipse.che.ide.ext.git.client.historyList;
+package org.eclipse.che.ide.ext.git.client.history;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 
 import org.eclipse.che.api.core.ErrorCodes;
+import org.eclipse.che.api.git.shared.Constants;
 import org.eclipse.che.api.git.shared.LogResponse;
 import org.eclipse.che.api.git.shared.Revision;
 import org.eclipse.che.api.git.shared.ShowFileContentResponse;
@@ -32,6 +33,7 @@ import org.eclipse.che.ide.ext.git.client.compare.changedList.ChangedListPresent
 import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +53,8 @@ import static org.eclipse.che.ide.util.ExceptionUtils.getErrorCode;
  */
 @Singleton
 public class HistoryPresenter implements HistoryView.ActionDelegate {
+    private final static String REVISION = "HEAD";
+
     private final ComparePresenter        comparePresenter;
     private final ChangedListPresenter    changedListPresenter;
     private final DialogFactory           dialogFactory;
@@ -64,6 +68,7 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
     private Project        project;
     private Path           selectedPath;
     private List<Revision> revisions;
+    private int            skip;
 
     @Inject
     public HistoryPresenter(HistoryView view,
@@ -88,6 +93,8 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
 
     /** Open dialog and shows revisions to compare. */
     public void show() {
+        this.skip = 0;
+        this.revisions = new ArrayList<>();
         this.project = appContext.getRootProject();
         this.selectedPath = appContext.getResource()
                                       .getLocation()
@@ -116,6 +123,11 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
         view.setDescription(locale.viewCompareRevisionFullDescriptionEmptyMessage());
     }
 
+    @Override
+    public void onScrolledToButton() {
+        getRevisions();
+    }
+
     /** {@inheritDoc} */
     @Override
     public void onRevisionSelected(@NotNull Revision revision) {
@@ -132,19 +144,28 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
 
     /** Get list of revisions. */
     private void getRevisions() {
-        service.log(appContext.getDevMachine(), project.getLocation(), selectedPath.isEmpty() ? null : new Path[]{selectedPath}, false)
+        service.log(appContext.getDevMachine(),
+                    project.getLocation(),
+                    selectedPath.isEmpty() ? null : new Path[]{selectedPath},
+                    skip,
+                    Constants.DEFAULT_PAGE_SIZE,
+                    false)
                .then(new Operation<LogResponse>() {
                    @Override
                    public void apply(LogResponse log) throws OperationException {
-                       HistoryPresenter.this.revisions = log.getCommits();
-                       view.setRevisions(log.getCommits());
-                       view.showDialog();
+                       List<Revision> commits = log.getCommits();
+                       if (!commits.isEmpty()) {
+                           skip += commits.size();
+                           revisions.addAll(commits);
+                           view.setRevisions(revisions);
+                           view.showDialog();
+                       }
                    }
                }).catchError(new Operation<PromiseError>() {
             @Override
             public void apply(PromiseError error) throws OperationException {
                 if (getErrorCode(error.getCause()) == ErrorCodes.INIT_COMMIT_WAS_NOT_PERFORMED) {
-                    dialogFactory.createMessageDialog(locale.compareWithRevisionTitle(),
+                    dialogFactory.createMessageDialog(locale.historyTitle(),
                                                       locale.initCommitWasNotPerformed(),
                                                       null).show();
                 } else {
@@ -155,7 +176,7 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
     }
 
     private void compare() {
-        final String revisionA = revisions.get(revisions.indexOf(selectedRevision) + 1).getId();
+        final String revisionA = revisions.indexOf(selectedRevision) + 1 == revisions.size() ? "HEAD" : revisions.get(revisions.indexOf(selectedRevision) + 1).getId();
         final String revisionB = selectedRevision.getId();
         service.diff(appContext.getDevMachine(),
                      project.getLocation(),
@@ -169,8 +190,8 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                    @Override
                    public void apply(final String diff) throws OperationException {
                        if (diff.isEmpty()) {
-                           dialogFactory.createMessageDialog(locale.compareMessageIdenticalContentTitle(),
-                                                             locale.compareMessageIdenticalContentText(), null).show();
+                           dialogFactory.createMessageDialog(locale.historyTitle(),
+                                                             locale.historyNothingToDisplay(), null).show();
                        } else {
                            final String[] changedFiles = diff.split("\n");
                            final Path path = Path.valueOf(changedFiles[0].substring(2));
