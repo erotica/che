@@ -139,9 +139,10 @@ public class ComparePresenter implements CompareView.ActionDelegate {
         }
     }
 
-    public void show(String revisionA, String revisionB, String fileName, String oldContent, String newContent) {
+    public void show(String leftColumn, String rightColumn, String fileName, String oldContent, String newContent) {
         this.localCompare = false;
-        view.setColoumnTitles(revisionB + locale.compareReadOnlyTitle(), revisionA + locale.compareReadOnlyTitle());
+        view.setTitle(fileName);
+        view.setColoumnTitles(leftColumn, rightColumn);
         view.show(oldContent, newContent, fileName, true);
     }
 

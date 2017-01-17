@@ -14,7 +14,6 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 
 import org.eclipse.che.api.core.ErrorCodes;
-import org.eclipse.che.api.git.shared.Constants;
 import org.eclipse.che.api.git.shared.LogResponse;
 import org.eclipse.che.api.git.shared.Revision;
 import org.eclipse.che.api.git.shared.ShowFileContentResponse;
@@ -24,8 +23,8 @@ import org.eclipse.che.api.promises.client.PromiseError;
 import org.eclipse.che.ide.api.app.AppContext;
 import org.eclipse.che.ide.api.dialogs.DialogFactory;
 import org.eclipse.che.ide.api.git.GitServiceClient;
+import org.eclipse.che.ide.api.machine.DevMachine;
 import org.eclipse.che.ide.api.notification.NotificationManager;
-import org.eclipse.che.ide.api.project.ProjectServiceClient;
 import org.eclipse.che.ide.api.resources.Project;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.compare.ComparePresenter;
@@ -40,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 
 import static java.util.Collections.singletonList;
+import static org.eclipse.che.api.git.shared.Constants.DEFAULT_PAGE_SIZE;
 import static org.eclipse.che.api.git.shared.DiffType.NAME_STATUS;
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.NOT_EMERGE_MODE;
 import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
@@ -100,7 +100,7 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                                       .getLocation()
                                       .removeFirstSegments(project.getLocation().segmentCount())
                                       .removeTrailingSeparator();
-        getRevisions();
+        FetchRevisions();
     }
 
     /** {@inheritDoc} */
@@ -125,7 +125,7 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
 
     @Override
     public void onScrolledToButton() {
-        getRevisions();
+        FetchRevisions();
     }
 
     /** {@inheritDoc} */
@@ -143,12 +143,12 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
     }
 
     /** Get list of revisions. */
-    private void getRevisions() {
+    private void FetchRevisions() {
         service.log(appContext.getDevMachine(),
                     project.getLocation(),
                     selectedPath.isEmpty() ? null : new Path[]{selectedPath},
                     skip,
-                    Constants.DEFAULT_PAGE_SIZE,
+                    DEFAULT_PAGE_SIZE,
                     false)
                .then(new Operation<LogResponse>() {
                    @Override
@@ -161,26 +161,29 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                            view.showDialog();
                        }
                    }
-               }).catchError(new Operation<PromiseError>() {
-            @Override
-            public void apply(PromiseError error) throws OperationException {
-                if (getErrorCode(error.getCause()) == ErrorCodes.INIT_COMMIT_WAS_NOT_PERFORMED) {
-                    dialogFactory.createMessageDialog(locale.historyTitle(),
-                                                      locale.initCommitWasNotPerformed(),
-                                                      null).show();
-                } else {
-                    notificationManager.notify(locale.logFailed(), FAIL, NOT_EMERGE_MODE);
-                }
-            }
-        });
+               })
+               .catchError(new Operation<PromiseError>() {
+                   @Override
+                   public void apply(PromiseError error) throws OperationException {
+                       if (getErrorCode(error.getCause()) == ErrorCodes.INIT_COMMIT_WAS_NOT_PERFORMED) {
+                           dialogFactory.createMessageDialog(locale.historyTitle(),
+                                                             locale.initCommitWasNotPerformed(),
+                                                             null).show();
+                       } else {
+                           notificationManager.notify(locale.logFailed(), FAIL, NOT_EMERGE_MODE);
+                       }
+                   }
+               });
     }
 
     private void compare() {
         final String revisionA = revisions.indexOf(selectedRevision) + 1 == revisions.size() ? null :
                                  revisions.get(revisions.indexOf(selectedRevision) + 1).getId();
         final String revisionB = selectedRevision.getId();
-        service.diff(appContext.getDevMachine(),
-                     project.getLocation(),
+        final DevMachine devMachine = appContext.getDevMachine();
+        final Path projectLocation = project.getLocation();
+        service.diff(devMachine,
+                     projectLocation,
                      singletonList(selectedPath.toString()),
                      NAME_STATUS,
                      true,
@@ -195,35 +198,34 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                                                              locale.historyNothingToDisplay(), null).show();
                        } else {
                            final String[] changedFiles = diff.split("\n");
-                           final Path path = Path.valueOf(changedFiles[0].substring(2));
+                           final Path file = Path.valueOf(changedFiles[0].substring(2));
                            if (changedFiles.length == 1) {
                                if (revisionA == null) {
-                                   service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionB)
+                                   service.showFileContent(devMachine, projectLocation, file, revisionB)
                                           .then(new Operation<ShowFileContentResponse>() {
                                               @Override
                                               public void apply(ShowFileContentResponse response) throws OperationException {
-                                                  comparePresenter.show("/dev/null/",
-                                                                        revisionB,
-                                                                        diff.substring(2),
+                                                  comparePresenter.show(revisionB + locale.compareReadOnlyTitle(),
+                                                                        "",
+                                                                        file.toString(),
                                                                         "",
                                                                         response.getContent());
                                               }
                                           });
                                } else {
-                                   service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionA)
+                                   service.showFileContent(devMachine, projectLocation, file, revisionA)
                                           .then(new Operation<ShowFileContentResponse>() {
                                               @Override
-                                              public void apply(final ShowFileContentResponse contentA) throws OperationException {
-                                                  service.showFileContent(appContext.getDevMachine(), project.getLocation(), path,
-                                                                          revisionB)
+                                              public void apply(final ShowFileContentResponse contentAResponse) throws OperationException {
+                                                  service.showFileContent(devMachine, projectLocation, file, revisionB)
                                                          .then(new Operation<ShowFileContentResponse>() {
                                                              @Override
-                                                             public void apply(ShowFileContentResponse contentB) throws OperationException {
-                                                                 comparePresenter.show(revisionA,
-                                                                                       revisionB,
-                                                                                       diff.substring(2),
-                                                                                       contentA.getContent(),
-                                                                                       contentB.getContent());
+                                                             public void apply(ShowFileContentResponse contentBResponse) throws OperationException {
+                                                                 comparePresenter.show(revisionA + locale.compareReadOnlyTitle(),
+                                                                                       revisionB + locale.compareReadOnlyTitle(),
+                                                                                       file.toString(),
+                                                                                       contentAResponse.getContent(),
+                                                                                       contentBResponse.getContent());
                                                              }
                                                          });
                                               }

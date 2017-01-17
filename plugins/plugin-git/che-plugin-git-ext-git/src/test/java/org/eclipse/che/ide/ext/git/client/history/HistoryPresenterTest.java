@@ -101,6 +101,9 @@ public class HistoryPresenterTest extends BaseTest {
         when(logPromise.catchError(any(Operation.class))).thenReturn(logPromise);
         when(showPromise.then(any(Operation.class))).thenReturn(showPromise);
         when(showPromise.catchError(any(Operation.class))).thenReturn(showPromise);
+        when(constant.historyTitle()).thenReturn("title");
+        when(constant.historyNothingToDisplay()).thenReturn("error message");
+        when(constant.compareReadOnlyTitle()).thenReturn("(Read only)");
     }
 
     @Test
@@ -123,7 +126,6 @@ public class HistoryPresenterTest extends BaseTest {
         ServerException exception = mock(ServerException.class);
         when(exception.getErrorCode()).thenReturn(ErrorCodes.INIT_COMMIT_WAS_NOT_PERFORMED);
         when(error.getCause()).thenReturn(exception);
-        when(constant.historyTitle()).thenReturn("title");
         when(constant.initCommitWasNotPerformed()).thenReturn("error message");
         MessageDialog dialog = mock(MessageDialog.class);
         when(dialogFactory.createMessageDialog(eq("title"), eq("error message"), any(ConfirmCallback.class))).thenReturn(dialog);
@@ -168,13 +170,13 @@ public class HistoryPresenterTest extends BaseTest {
         logCaptor.getValue().apply(logResponse);
         presenter.onCompareClicked();
         verify(stringPromise).then(stringCaptor.capture());
-        stringCaptor.getValue().apply("M file1");
+        stringCaptor.getValue().apply("M file");
         verify(showPromise).then(showCaptor.capture());
         showCaptor.getValue().apply(showFileContentResponse1);
         verify(showPromise, times(2)).then(showCaptor.capture());
         showCaptor.getValue().apply(showFileContentResponse2);
 
-        verify(comparePresenter).show(eq("commitB"), eq("commitA"), eq("file1"), eq("content1"), eq("content2"));
+        verify(comparePresenter).show(eq("commitB(Read only)"), eq("commitA(Read only)"), eq("file"), eq("content1"), eq("content2"));
     }
 
     @Test
@@ -224,8 +226,6 @@ public class HistoryPresenterTest extends BaseTest {
 
     @Test
     public void shouldShowDialogIfNothingToCompare() throws Exception {
-        when(constant.historyTitle()).thenReturn("title");
-        when(constant.historyNothingToDisplay()).thenReturn("error message");
         MessageDialog dialog = mock(MessageDialog.class);
         when(dialogFactory.createMessageDialog(eq("title"), eq("error message"), any(ConfirmCallback.class))).thenReturn(dialog);
 
@@ -257,6 +257,6 @@ public class HistoryPresenterTest extends BaseTest {
         verify(showPromise).then(showCaptor.capture());
         showCaptor.getValue().apply(showFileContentResponse1);
 
-        verify(comparePresenter).show(eq("/dev/null/"), eq("commit"), eq("file"), eq(""), eq("content"));
+        verify(comparePresenter).show(eq("commit(Read only)"), eq(""), eq("file"), eq(""), eq("content"));
     }
 }

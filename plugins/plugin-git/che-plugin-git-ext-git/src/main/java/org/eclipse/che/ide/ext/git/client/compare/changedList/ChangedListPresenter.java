@@ -158,10 +158,12 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
     }
 
     private void showCompare() {
-        if (revisionB != null) {
-            showCompareBetweenRevisions();
-        } else {
+        if (revisionA == null) {
+            showInitialCommit();
+        } else if (revisionB == null) {
             showCompareWithLatest();
+        } else {
+            showCompareBetweenRevisions();
         }
     }
 
@@ -174,6 +176,20 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
                 }
             }
         });
+    }
+
+    private void showInitialCommit() {
+        service.showFileContent(appContext.getDevMachine(), project.getLocation(), Path.valueOf(file), revisionB)
+               .then(new Operation<ShowFileContentResponse>() {
+                   @Override
+                   public void apply(ShowFileContentResponse response) throws OperationException {
+                       comparePresenter.show(revisionB,
+                                             "",
+                                             file,
+                                             "",
+                                             response.getContent());
+                   }
+               });
     }
 
     private void showCompareBetweenRevisions() {
