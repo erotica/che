@@ -176,7 +176,7 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
     }
 
     private void compare() {
-        final String revisionA = revisions.indexOf(selectedRevision) + 1 == revisions.size() ? "HEAD" : revisions.get(revisions.indexOf(selectedRevision) + 1).getId();
+        final String revisionA = selectedRevision.getId() + "~1";
         final String revisionB = selectedRevision.getId();
         service.diff(appContext.getDevMachine(),
                      project.getLocation(),

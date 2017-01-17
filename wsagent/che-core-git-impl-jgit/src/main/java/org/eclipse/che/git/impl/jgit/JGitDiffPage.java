@@ -28,7 +28,9 @@ import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.treewalk.AbstractTreeIterator;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
+import org.eclipse.jgit.treewalk.EmptyTreeIterator;
 import org.eclipse.jgit.treewalk.FileTreeIterator;
 import org.eclipse.jgit.treewalk.filter.AndTreeFilter;
 import org.eclipse.jgit.treewalk.filter.PathFilterGroup;
@@ -96,6 +98,41 @@ class JGitDiffPage extends DiffPage {
             formatter.close();
             repository.close();
         }
+    }
+
+    private List<DiffEntry> commitToEmpty(String commitId, DiffFormatter formatter) throws IOException {
+        ObjectId commitA = repository.resolve(commitId);
+        if (commitA == null) {
+            File heads = new File(repository.getWorkTree().getPath() + "/.git/refs/heads");
+            if (heads.exists() && heads.list().length == 0) {
+                return Collections.emptyList();
+            }
+            throw new IllegalArgumentException("Invalid commit id " + commitId);
+        }
+        RevTree treeA;
+        try (RevWalk revWalkA = new RevWalk(repository)) {
+            treeA = revWalkA.parseTree(commitA);
+        }
+
+        List<DiffEntry> diff;
+        try (ObjectReader reader = repository.newObjectReader()) {
+            CanonicalTreeParser iterA = new CanonicalTreeParser();
+            iterA.reset(reader, treeA);
+            AbstractTreeIterator iterB = new EmptyTreeIterator();
+            // Seems bug in DiffFormatter when work with working. Disable detect
+            // renames by formatter and do it later.
+            formatter.setDetectRenames(false);
+            diff = formatter.scan(iterA, iterB);
+            if (!params.isNoRenames()) {
+                // Detect renames.
+                RenameDetector renameDetector = createRenameDetector();
+                ContentSource.Pair sourcePairReader = new ContentSource.Pair(ContentSource.create(reader),
+                                                                             ContentSource.create(iterB));
+                renameDetector.addAll(diff);
+                diff = renameDetector.compute(sourcePairReader, NullProgressMonitor.INSTANCE);
+            }
+        }
+        return diff;
     }
 
     /**
