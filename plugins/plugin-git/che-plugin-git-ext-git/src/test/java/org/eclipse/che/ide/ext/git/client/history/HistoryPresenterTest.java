@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.NOT_EMERGE_MODE;
 import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
@@ -45,6 +46,7 @@ import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyList;
 import static org.mockito.Matchers.anyMap;
+import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -222,20 +224,39 @@ public class HistoryPresenterTest extends BaseTest {
 
     @Test
     public void shouldShowDialogIfNothingToCompare() throws Exception {
-        Revision revision = mock(Revision.class);
-        LogResponse logResponse = mock(LogResponse.class);
-        when(logResponse.getCommits()).thenReturn(singletonList(revision));
         when(constant.historyTitle()).thenReturn("title");
         when(constant.historyNothingToDisplay()).thenReturn("error message");
         MessageDialog dialog = mock(MessageDialog.class);
         when(dialogFactory.createMessageDialog(eq("title"), eq("error message"), any(ConfirmCallback.class))).thenReturn(dialog);
 
         presenter.show();
-        presenter.onRevisionSelected(revision);
+        presenter.onRevisionSelected(mock(Revision.class));
+        presenter.onCompareClicked();
+        verify(stringPromise).then(stringCaptor.capture());
+        stringCaptor.getValue().apply("");
+
+        verify(dialog).show();
+    }
+
+    @Test
+    public void shouldShowCompareWhenInitialCommitSelected() throws Exception {
+        Revision revisionB = mock(Revision.class);
+        when(revisionB.getId()).thenReturn("commit");
+        LogResponse logResponse = mock(LogResponse.class);
+        when(logResponse.getCommits()).thenReturn(Collections.singletonList(revisionB));
+        ShowFileContentResponse showFileContentResponse1 = mock(ShowFileContentResponse.class);
+        when(showFileContentResponse1.getContent()).thenReturn("content");
+
+        presenter.show();
+        presenter.onRevisionSelected(revisionB);
         verify(logPromise).then(logCaptor.capture());
         logCaptor.getValue().apply(logResponse);
         presenter.onCompareClicked();
+        verify(stringPromise).then(stringCaptor.capture());
+        stringCaptor.getValue().apply("A file");
+        verify(showPromise).then(showCaptor.capture());
+        showCaptor.getValue().apply(showFileContentResponse1);
 
-        verify(dialog).show();
+        verify(comparePresenter).show(eq("/dev/null/"), eq("commit"), eq("file"), eq(""), eq("content"));
     }
 }

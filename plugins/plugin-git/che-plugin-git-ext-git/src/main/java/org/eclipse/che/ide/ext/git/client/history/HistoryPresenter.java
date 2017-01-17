@@ -199,35 +199,36 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                            if (changedFiles.length == 1) {
                                if (revisionA == null) {
                                    service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionB)
-                                          .then(
-                                                  new Operation<ShowFileContentResponse>() {
-                                                      @Override
-                                                      public void apply(ShowFileContentResponse response) throws OperationException {
-                                                          comparePresenter.show("/dev/null/",
-                                                                                revisionB,
-                                                                                diff.substring(2),
-                                                                                "",
-                                                                                response.getContent());
-                                                      }
-                                                  });
+                                          .then(new Operation<ShowFileContentResponse>() {
+                                              @Override
+                                              public void apply(ShowFileContentResponse response) throws OperationException {
+                                                  comparePresenter.show("/dev/null/",
+                                                                        revisionB,
+                                                                        diff.substring(2),
+                                                                        "",
+                                                                        response.getContent());
+                                              }
+                                          });
+                               } else {
+                                   service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionA)
+                                          .then(new Operation<ShowFileContentResponse>() {
+                                              @Override
+                                              public void apply(final ShowFileContentResponse contentA) throws OperationException {
+                                                  service.showFileContent(appContext.getDevMachine(), project.getLocation(), path,
+                                                                          revisionB)
+                                                         .then(new Operation<ShowFileContentResponse>() {
+                                                             @Override
+                                                             public void apply(ShowFileContentResponse contentB) throws OperationException {
+                                                                 comparePresenter.show(revisionA,
+                                                                                       revisionB,
+                                                                                       diff.substring(2),
+                                                                                       contentA.getContent(),
+                                                                                       contentB.getContent());
+                                                             }
+                                                         });
+                                              }
+                                          });
                                }
-                               service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionA)
-                                      .then(new Operation<ShowFileContentResponse>() {
-                                          @Override
-                                          public void apply(final ShowFileContentResponse contentA) throws OperationException {
-                                              service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionB)
-                                                     .then(new Operation<ShowFileContentResponse>() {
-                                                         @Override
-                                                         public void apply(ShowFileContentResponse contentB) throws OperationException {
-                                                             comparePresenter.show(revisionA,
-                                                                                   revisionB,
-                                                                                   diff.substring(2),
-                                                                                   contentA.getContent(),
-                                                                                   contentB.getContent());
-                                                         }
-                                                     });
-                                          }
-                                      });
                            } else {
                                Map<String, FileStatus.Status> items = new HashMap<>();
                                for (String item : changedFiles) {
