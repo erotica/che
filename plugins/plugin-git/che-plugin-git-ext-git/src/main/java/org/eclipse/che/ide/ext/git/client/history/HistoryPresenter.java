@@ -25,6 +25,7 @@ import org.eclipse.che.ide.api.app.AppContext;
 import org.eclipse.che.ide.api.dialogs.DialogFactory;
 import org.eclipse.che.ide.api.git.GitServiceClient;
 import org.eclipse.che.ide.api.notification.NotificationManager;
+import org.eclipse.che.ide.api.project.ProjectServiceClient;
 import org.eclipse.che.ide.api.resources.Project;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.ext.git.client.compare.ComparePresenter;
@@ -53,7 +54,6 @@ import static org.eclipse.che.ide.util.ExceptionUtils.getErrorCode;
  */
 @Singleton
 public class HistoryPresenter implements HistoryView.ActionDelegate {
-    private final static String REVISION = "HEAD";
 
     private final ComparePresenter        comparePresenter;
     private final ChangedListPresenter    changedListPresenter;
@@ -176,7 +176,8 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
     }
 
     private void compare() {
-        final String revisionA = selectedRevision.getId() + "~1";
+        final String revisionA = revisions.indexOf(selectedRevision) + 1 == revisions.size() ? null :
+                                 revisions.get(revisions.indexOf(selectedRevision) + 1).getId();
         final String revisionB = selectedRevision.getId();
         service.diff(appContext.getDevMachine(),
                      project.getLocation(),
@@ -196,6 +197,20 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                            final String[] changedFiles = diff.split("\n");
                            final Path path = Path.valueOf(changedFiles[0].substring(2));
                            if (changedFiles.length == 1) {
+                               if (revisionA == null) {
+                                   service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionB)
+                                          .then(
+                                                  new Operation<ShowFileContentResponse>() {
+                                                      @Override
+                                                      public void apply(ShowFileContentResponse response) throws OperationException {
+                                                          comparePresenter.show("/dev/null/",
+                                                                                revisionB,
+                                                                                diff.substring(2),
+                                                                                "",
+                                                                                response.getContent());
+                                                      }
+                                                  });
+                               }
                                service.showFileContent(appContext.getDevMachine(), project.getLocation(), path, revisionA)
                                       .then(new Operation<ShowFileContentResponse>() {
                                           @Override

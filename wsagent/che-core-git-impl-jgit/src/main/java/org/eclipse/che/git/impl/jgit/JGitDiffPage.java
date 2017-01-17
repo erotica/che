@@ -28,7 +28,6 @@ import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
-import org.eclipse.jgit.treewalk.AbstractTreeIterator;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.EmptyTreeIterator;
 import org.eclipse.jgit.treewalk.FileTreeIterator;
@@ -80,6 +79,8 @@ class JGitDiffPage extends DiffPage {
                 diff = indexToWorkingTree(formatter);
             } else if (commitA != null && commitB == null && !cached) {
                 diff = commitToWorkingTree(commitA, formatter);
+            } else if (commitA == null && commitB != null) {
+                diff = EmptyToCommit(commitB, formatter);
             } else if (commitB == null) {
                 diff = commitToIndex(commitA, formatter);
             } else {
@@ -100,7 +101,7 @@ class JGitDiffPage extends DiffPage {
         }
     }
 
-    private List<DiffEntry> commitToEmpty(String commitId, DiffFormatter formatter) throws IOException {
+    private List<DiffEntry> EmptyToCommit(String commitId, DiffFormatter formatter) throws IOException {
         ObjectId commitA = repository.resolve(commitId);
         if (commitA == null) {
             File heads = new File(repository.getWorkTree().getPath() + "/.git/refs/heads");
@@ -109,28 +110,27 @@ class JGitDiffPage extends DiffPage {
             }
             throw new IllegalArgumentException("Invalid commit id " + commitId);
         }
-        RevTree treeA;
+        RevTree tree;
         try (RevWalk revWalkA = new RevWalk(repository)) {
-            treeA = revWalkA.parseTree(commitA);
+            tree = revWalkA.parseTree(commitA);
         }
 
         List<DiffEntry> diff;
         try (ObjectReader reader = repository.newObjectReader()) {
-            CanonicalTreeParser iterA = new CanonicalTreeParser();
-            iterA.reset(reader, treeA);
-            AbstractTreeIterator iterB = new EmptyTreeIterator();
+            CanonicalTreeParser iter = new CanonicalTreeParser();
+            iter.reset(reader, tree);
             // Seems bug in DiffFormatter when work with working. Disable detect
             // renames by formatter and do it later.
             formatter.setDetectRenames(false);
-            diff = formatter.scan(iterA, iterB);
-            if (!params.isNoRenames()) {
-                // Detect renames.
-                RenameDetector renameDetector = createRenameDetector();
-                ContentSource.Pair sourcePairReader = new ContentSource.Pair(ContentSource.create(reader),
-                                                                             ContentSource.create(iterB));
-                renameDetector.addAll(diff);
-                diff = renameDetector.compute(sourcePairReader, NullProgressMonitor.INSTANCE);
-            }
+            diff = formatter.scan(new EmptyTreeIterator(), iter);
+//            if (!params.isNoRenames()) {
+//                // Detect renames.
+//                RenameDetector renameDetector = createRenameDetector();
+//                ContentSource.Pair sourcePairReader = new ContentSource.Pair(ContentSource.create(reader),
+//                                                                             ContentSource.create(iterB));
+//                renameDetector.addAll(diff);
+//                diff = renameDetector.compute(sourcePairReader, NullProgressMonitor.INSTANCE);
+//            }
         }
         return diff;
     }
