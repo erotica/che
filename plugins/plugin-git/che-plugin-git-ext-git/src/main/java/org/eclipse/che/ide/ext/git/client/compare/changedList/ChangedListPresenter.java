@@ -37,6 +37,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Map;
 
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.FLOAT_MODE;
+import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.NOT_EMERGE_MODE;
 import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
 import static org.eclipse.che.ide.util.ExceptionUtils.getErrorCode;
 
@@ -159,7 +160,7 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
 
     private void showCompare() {
         if (revisionA == null) {
-            showInitialCommit();
+            showCompareWithEmpty();
         } else if (revisionB == null) {
             showCompareWithLatest();
         } else {
@@ -168,42 +169,66 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
     }
 
     private void showCompareWithLatest() {
-        project.getFile(file).then(new Operation<Optional<File>>() {
-            @Override
-            public void apply(Optional<File> file) throws OperationException {
-                if (file.isPresent()) {
-                    comparePresenter.show(file.get(), status, revisionA);
-                }
-            }
-        });
+        project.getFile(file)
+               .then(new Operation<Optional<File>>() {
+                   @Override
+                   public void apply(Optional<File> file) throws OperationException {
+                       if (file.isPresent()) {
+                           comparePresenter.showCompareWithLatest(file.get(), status, revisionA);
+                       }
+                   }
+               })
+               .catchError(new Operation<PromiseError>() {
+                   @Override
+                   public void apply(PromiseError error) throws OperationException {
+                       notificationManager.notify(error.getMessage(), FAIL, NOT_EMERGE_MODE);
+                   }
+               });
     }
 
-    private void showInitialCommit() {
+    private void showCompareWithEmpty() {
         service.showFileContent(appContext.getDevMachine(), project.getLocation(), Path.valueOf(file), revisionB)
                .then(new Operation<ShowFileContentResponse>() {
                    @Override
                    public void apply(ShowFileContentResponse response) throws OperationException {
-                       comparePresenter.show(revisionB,
-                                             "",
-                                             file,
-                                             "",
-                                             response.getContent());
+                       comparePresenter.showCompareBetweenRevisions(revisionB + locale.compareReadOnlyTitle(),
+                                                                    "",
+                                                                    file,
+                                                                    "",
+                                                                    response.getContent());
+                   }
+               })
+               .catchError(new Operation<PromiseError>() {
+                   @Override
+                   public void apply(PromiseError error) throws OperationException {
+                       notificationManager.notify(error.getMessage(), FAIL, NOT_EMERGE_MODE);
                    }
                });
     }
 
     private void showCompareBetweenRevisions() {
         final DevMachine devMachine = appContext.getDevMachine();
-        final Path location = appContext.getRootProject().getLocation();
-        service.showFileContent(devMachine, location, Path.valueOf(file), revisionA)
+        final Path projectLocation = appContext.getRootProject().getLocation();
+        final Path filePath = Path.valueOf(file);
+        service.showFileContent(devMachine, projectLocation, filePath, revisionA)
                .then(new Operation<ShowFileContentResponse>() {
                    @Override
-                   public void apply(final ShowFileContentResponse contentA) throws OperationException {
-                       service.showFileContent(devMachine, location, Path.valueOf(file), revisionB)
+                   public void apply(final ShowFileContentResponse contentAResponse) throws OperationException {
+                       service.showFileContent(devMachine, projectLocation, filePath, revisionB)
                               .then(new Operation<ShowFileContentResponse>() {
                                   @Override
-                                  public void apply(ShowFileContentResponse contentB) throws OperationException {
-                                      comparePresenter.show(revisionA, revisionB, file, contentA.getContent(), contentB.getContent());
+                                  public void apply(ShowFileContentResponse contentBResponse) throws OperationException {
+                                      comparePresenter.showCompareBetweenRevisions(revisionA,
+                                                                                   revisionB,
+                                                                                   file,
+                                                                                   contentAResponse.getContent(),
+                                                                                   contentBResponse.getContent());
+                                  }
+                              })
+                              .catchError(new Operation<PromiseError>() {
+                                  @Override
+                                  public void apply(PromiseError error) throws OperationException {
+                                      notificationManager.notify(error.getMessage(), FAIL, NOT_EMERGE_MODE);
                                   }
                               });
                    }
@@ -211,12 +236,16 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
                .catchError(new Operation<PromiseError>() {
                    @Override
                    public void apply(PromiseError error) throws OperationException {
-                       if (getErrorCode(error.getCause()) == ErrorCodes.PATH_IS_NOT_EXIST_IN_REVISION) {
-                           service.showFileContent(devMachine, location, Path.valueOf(file), revisionB)
+                       if (getErrorCode(error.getCause()) == ErrorCodes.PATH_IS_NOT_PRESENT_IN_REVISION) {
+                           service.showFileContent(devMachine, projectLocation, Path.valueOf(file), revisionB)
                                   .then(new Operation<ShowFileContentResponse>() {
                                       @Override
-                                      public void apply(ShowFileContentResponse contentB) throws OperationException {
-                                          comparePresenter.show(revisionA, revisionB, file, "", contentB.getContent());
+                                      public void apply(ShowFileContentResponse contentBResponse) throws OperationException {
+                                          comparePresenter.showCompareBetweenRevisions(revisionA,
+                                                                                       revisionB,
+                                                                                       file,
+                                                                                       "",
+                                                                                       contentBResponse.getContent());
                                       }
                                   });
                        } else {

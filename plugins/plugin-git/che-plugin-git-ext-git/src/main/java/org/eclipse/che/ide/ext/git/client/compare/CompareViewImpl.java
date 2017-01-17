@@ -114,7 +114,7 @@ final class CompareViewImpl extends Window implements CompareView {
     }
 
     @Override
-    public void setColoumnTitles(String leftTitle, String rightTitle) {
+    public void setColumnTitles(String leftTitle, String rightTitle) {
         this.leftTitle.setText(leftTitle);
         this.rightTitle.setText(rightTitle);
     }

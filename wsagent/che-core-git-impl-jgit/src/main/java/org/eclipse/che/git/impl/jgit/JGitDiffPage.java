@@ -102,8 +102,8 @@ class JGitDiffPage extends DiffPage {
     }
 
     private List<DiffEntry> EmptyToCommit(String commitId, DiffFormatter formatter) throws IOException {
-        ObjectId commitA = repository.resolve(commitId);
-        if (commitA == null) {
+        ObjectId commit = repository.resolve(commitId);
+        if (commit == null) {
             File heads = new File(repository.getWorkTree().getPath() + "/.git/refs/heads");
             if (heads.exists() && heads.list().length == 0) {
                 return Collections.emptyList();
@@ -112,25 +112,19 @@ class JGitDiffPage extends DiffPage {
         }
         RevTree tree;
         try (RevWalk revWalkA = new RevWalk(repository)) {
-            tree = revWalkA.parseTree(commitA);
+            tree = revWalkA.parseTree(commit);
         }
 
         List<DiffEntry> diff;
         try (ObjectReader reader = repository.newObjectReader()) {
-            CanonicalTreeParser iter = new CanonicalTreeParser();
-            iter.reset(reader, tree);
-            // Seems bug in DiffFormatter when work with working. Disable detect
-            // renames by formatter and do it later.
-            formatter.setDetectRenames(false);
-            diff = formatter.scan(new EmptyTreeIterator(), iter);
-//            if (!params.isNoRenames()) {
-//                // Detect renames.
-//                RenameDetector renameDetector = createRenameDetector();
-//                ContentSource.Pair sourcePairReader = new ContentSource.Pair(ContentSource.create(reader),
-//                                                                             ContentSource.create(iterB));
-//                renameDetector.addAll(diff);
-//                diff = renameDetector.compute(sourcePairReader, NullProgressMonitor.INSTANCE);
-//            }
+            CanonicalTreeParser iterator = new CanonicalTreeParser();
+            iterator.reset(reader, tree);
+            formatter.setDetectRenames(params.isNoRenames());
+            diff = formatter.scan(new EmptyTreeIterator(), iterator);
+            formatter.setDetectRenames(true);
+            if (params.getRenameLimit() > 0) {
+                formatter.getRenameDetector().setRenameLimit(params.getRenameLimit());
+            }
         }
         return diff;
     }

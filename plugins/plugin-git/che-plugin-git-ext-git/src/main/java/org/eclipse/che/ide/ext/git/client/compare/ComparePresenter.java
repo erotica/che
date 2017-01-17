@@ -55,10 +55,10 @@ public class ComparePresenter implements CompareView.ActionDelegate {
     private final GitLocalizationConstant locale;
     private final NotificationManager     notificationManager;
 
-    private File   comparedFile;
-    private String revision;
-    private String localContent;
-    private boolean localCompare;
+    private File    comparedFile;
+    private String  revision;
+    private String  localContent;
+    private boolean compareWithLatest;
 
     @Inject
     public ComparePresenter(AppContext appContext,
@@ -86,12 +86,12 @@ public class ComparePresenter implements CompareView.ActionDelegate {
      * @param status
      *         status of the file
      * @param revision
-     *         hash of leftTitle or branch
+     *         hash of revision or branch
      */
-    public void show(final File file, final Status status, final String revision) {
+    public void showCompareWithLatest(final File file, final Status status, final String revision) {
         this.comparedFile = file;
         this.revision = revision;
-        this.localCompare = true;
+        this.compareWithLatest = true;
 
         if (status.equals(ADDED)) {
             showCompare("");
@@ -112,7 +112,7 @@ public class ComparePresenter implements CompareView.ActionDelegate {
                        @Override
                        public void apply(ShowFileContentResponse content) throws OperationException {
                            view.setTitle(file.getLocation().toString());
-                           view.setColoumnTitles(locale.compareYourVersionTitle(), revision + locale.compareReadOnlyTitle());
+                           view.setColumnTitles(locale.compareYourVersionTitle(), revision + locale.compareReadOnlyTitle());
                            view.show(content.getContent(), "", file.getLocation().toString(), false);
                        }
                    })
@@ -139,17 +139,30 @@ public class ComparePresenter implements CompareView.ActionDelegate {
         }
     }
 
-    public void show(String leftColumn, String rightColumn, String fileName, String oldContent, String newContent) {
-        this.localCompare = false;
+    /**
+     * Show compare window.
+     *
+     * @param leftColumn
+     *         title of the left column
+     * @param rightColumn
+     *         title of the right column
+     * @param fileName
+     *         file name with its full path
+     * @param oldContent
+     *         old content of the file
+     * @param newContent
+     *         new content of the file
+     */
+    public void showCompareBetweenRevisions(String leftColumn, String rightColumn, String fileName, String oldContent, String newContent) {
+        this.compareWithLatest = false;
         view.setTitle(fileName);
-        view.setColoumnTitles(leftColumn, rightColumn);
+        view.setColumnTitles(leftColumn, rightColumn);
         view.show(oldContent, newContent, fileName, true);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onClose(final String newContent) {
-        if (!localCompare || this.localContent == null || newContent.equals(localContent)) {
+        if (!compareWithLatest || this.localContent == null || newContent.equals(localContent)) {
             view.hide();
             return;
         }
@@ -191,7 +204,7 @@ public class ComparePresenter implements CompareView.ActionDelegate {
                 localContent = local;
                 final String path = comparedFile.getLocation().toString();
                 view.setTitle(path);
-                view.setColoumnTitles(locale.compareYourVersionTitle(), revision + locale.compareReadOnlyTitle());
+                view.setColumnTitles(locale.compareYourVersionTitle(), revision + locale.compareReadOnlyTitle());
                 view.show(remoteContent, localContent, path, false);
             }
         });

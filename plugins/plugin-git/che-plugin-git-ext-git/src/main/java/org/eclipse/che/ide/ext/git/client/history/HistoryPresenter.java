@@ -205,11 +205,11 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                                           .then(new Operation<ShowFileContentResponse>() {
                                               @Override
                                               public void apply(ShowFileContentResponse response) throws OperationException {
-                                                  comparePresenter.show(revisionB + locale.compareReadOnlyTitle(),
-                                                                        "",
-                                                                        file.toString(),
-                                                                        "",
-                                                                        response.getContent());
+                                                  comparePresenter.showCompareBetweenRevisions(revisionB + locale.compareReadOnlyTitle(),
+                                                                                               "",
+                                                                                               file.toString(),
+                                                                                               "",
+                                                                                               response.getContent());
                                               }
                                           });
                                } else {
@@ -220,12 +220,14 @@ public class HistoryPresenter implements HistoryView.ActionDelegate {
                                                   service.showFileContent(devMachine, projectLocation, file, revisionB)
                                                          .then(new Operation<ShowFileContentResponse>() {
                                                              @Override
-                                                             public void apply(ShowFileContentResponse contentBResponse) throws OperationException {
-                                                                 comparePresenter.show(revisionA + locale.compareReadOnlyTitle(),
-                                                                                       revisionB + locale.compareReadOnlyTitle(),
-                                                                                       file.toString(),
-                                                                                       contentAResponse.getContent(),
-                                                                                       contentBResponse.getContent());
+                                                             public void apply(ShowFileContentResponse contentBResponse)
+                                                                     throws OperationException {
+                                                                 comparePresenter.showCompareBetweenRevisions(
+                                                                         revisionA + locale.compareReadOnlyTitle(),
+                                                                         revisionB + locale.compareReadOnlyTitle(),
+                                                                         file.toString(),
+                                                                         contentAResponse.getContent(),
+                                                                         contentBResponse.getContent());
                                                              }
                                                          });
                                               }

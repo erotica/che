@@ -20,8 +20,6 @@ import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
 import org.eclipse.che.ide.FontAwesome;
 import org.eclipse.che.ide.ext.git.client.history.HistoryPresenter;
 
-import static com.google.common.base.Preconditions.checkState;
-
 /**
  * @author Andrey Plotnikov
  * @author Vlad Zhukovskyi

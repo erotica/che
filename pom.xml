@@ -28,10 +28,10 @@
         <module>wsmaster</module>
         <module>wsagent</module>
         <module>ide</module>
-        <!--<module>agents</module>-->
+        <module>agents</module>
         <module>plugins</module>
         <module>samples</module>
-        <!--<module>dashboard</module>-->
+        <module>dashboard</module>
         <module>assembly</module>
     </modules>
     <scm>

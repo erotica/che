@@ -30,13 +30,11 @@ import org.eclipse.che.ide.resource.Path;
 import org.junit.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.testng.annotations.BeforeTest;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.eclipse.che.ide.api.notification.StatusNotification.DisplayMode.NOT_EMERGE_MODE;
 import static org.eclipse.che.ide.api.notification.StatusNotification.Status.FAIL;
@@ -46,7 +44,6 @@ import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyList;
 import static org.mockito.Matchers.anyMap;
-import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -176,7 +173,11 @@ public class HistoryPresenterTest extends BaseTest {
         verify(showPromise, times(2)).then(showCaptor.capture());
         showCaptor.getValue().apply(showFileContentResponse2);
 
-        verify(comparePresenter).show(eq("commitB(Read only)"), eq("commitA(Read only)"), eq("file"), eq("content1"), eq("content2"));
+        verify(comparePresenter).showCompareBetweenRevisions(eq("commitB(Read only)"),
+                                                             eq("commitA(Read only)"),
+                                                             eq("file"),
+                                                             eq("content1"),
+                                                             eq("content2"));
     }
 
     @Test
@@ -257,6 +258,6 @@ public class HistoryPresenterTest extends BaseTest {
         verify(showPromise).then(showCaptor.capture());
         showCaptor.getValue().apply(showFileContentResponse1);
 
-        verify(comparePresenter).show(eq("commit(Read only)"), eq(""), eq("file"), eq(""), eq("content"));
+        verify(comparePresenter).showCompareBetweenRevisions(eq("commit(Read only)"), eq(""), eq("file"), eq(""), eq("content"));
     }
 }
