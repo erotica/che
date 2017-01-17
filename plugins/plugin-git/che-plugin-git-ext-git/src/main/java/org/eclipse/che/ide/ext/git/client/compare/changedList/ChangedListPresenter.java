@@ -25,7 +25,6 @@ import org.eclipse.che.ide.api.data.tree.Node;
 import org.eclipse.che.ide.api.git.GitServiceClient;
 import org.eclipse.che.ide.api.machine.DevMachine;
 import org.eclipse.che.ide.api.notification.NotificationManager;
-import org.eclipse.che.ide.api.notification.StatusNotification;
 import org.eclipse.che.ide.api.resources.File;
 import org.eclipse.che.ide.api.resources.Project;
 import org.eclipse.che.ide.ext.git.client.GitLocalizationConstant;
@@ -86,9 +85,13 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
      * @param changedFiles
      *         Map with files and their status
      * @param revisionA
-     *         hash of revisionA or branch
+     *         hash of the first revision or branch.
+     *         If it is set to {@code null}, compare with empty repository state will be performed
+     * @param revisionB
+     *         hash of the second revision or branch.
+     *         If it is set to {@code null}, compare with latest repository state will be performed
      */
-    public void show(Map<String, Status> changedFiles, String revisionA, @Nullable String revisionB, Project project) {
+    public void show(Map<String, Status> changedFiles, @Nullable String revisionA, @Nullable String revisionB, Project project) {
         this.changedFiles = changedFiles;
         this.project = project;
         this.revisionA = revisionA;
@@ -101,13 +104,11 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
         viewChangedFiles();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onCloseClicked() {
         view.close();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onCompareClicked() {
         showCompare();
@@ -118,7 +119,6 @@ public class ChangedListPresenter implements ChangedListView.ActionDelegate {
         showCompare();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void onChangeViewModeButtonClicked() {
         treeViewEnabled = !treeViewEnabled;
